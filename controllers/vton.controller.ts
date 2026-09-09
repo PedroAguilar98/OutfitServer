@@ -3,7 +3,7 @@ import { Genlook } from "@genlook/api";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-const client = new Genlook({ apiKey: 'gk_fj-p1psuJEapqr1LXVaWq_O8_ZVHX5-d6pDl0SNKjYM' });
+const client = new Genlook({ apiKey: process.env.GENLOOK_API_KEY || '' });
  
 
 
@@ -14,8 +14,8 @@ const uploadImage = async (imagePath: string) => {
     // Configuration
     cloudinary.config({ 
         cloud_name: 'hagj26kg', 
-        api_key: '578378629943262', 
-        api_secret: 'O54OjhPUsc1_ZQpYMD4tInDQV1s' // Click 'View API Keys' above to copy your API secret
+        api_key: process.env.CLOUDINARY_API_KEY || '', 
+        api_secret: process.env.CLOUDINARY_API_SECRET || '' // Click 'View API Keys' above to copy your API secret
     });
     
     // Upload an image with a unique public_id so each upload is a distinct asset
@@ -101,7 +101,7 @@ export class VtonController {
         try{
             console.log("conexion succes", req.files)
             const files:{ [fieldname: string]: Express.Multer.File[]; } | Express.Multer.File[] | undefined= req.files
-            /* if(files && Array.isArray(files)){
+            if(files && Array.isArray(files)){
                 const publicUrl = await uploadImage(files[1]?.path ?? '')
                 console.log("publicUrl", publicUrl)
                 if(publicUrl)
@@ -109,7 +109,7 @@ export class VtonController {
             }
             return res.json({
                 ok:true
-            }) */
+            })
         }catch(error){
             console.log("error", error)
             return res.json({
