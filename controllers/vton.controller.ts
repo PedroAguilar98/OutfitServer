@@ -99,8 +99,9 @@ const runGeneration = async (modelImage: string, productImage: string) => {
 export class VtonController {
     async generateVton(req: Request, res: Response){
         try{
+            console.log("conexion succes", req.files)
             const files:{ [fieldname: string]: Express.Multer.File[]; } | Express.Multer.File[] | undefined= req.files
-            if(files && Array.isArray(files)){
+            /* if(files && Array.isArray(files)){
                 const publicUrl = await uploadImage(files[1]?.path ?? '')
                 console.log("publicUrl", publicUrl)
                 if(publicUrl)
@@ -108,7 +109,7 @@ export class VtonController {
             }
             return res.json({
                 ok:true
-            })
+            }) */
         }catch(error){
             console.log("error", error)
             return res.json({

@@ -1,4 +1,5 @@
 
+import "dotenv/config";
 import path from "path";
 import express from "express";
 import vtonRoutes from "./routes/vton.routes";
@@ -18,7 +19,7 @@ async function main() {
         express.static(path.join(__dirname, "../uploads"))
     );
 
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 3001;
 
     app.listen(port, () => {
         console.log(`Servidor corriendo en puerto ${port}`);
