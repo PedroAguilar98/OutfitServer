@@ -106,12 +106,13 @@ export class VtonController {
     async generateVton(req: Request, res: Response){
         try{
             const files:{ [fieldname: string]: Express.Multer.File[]; } | Express.Multer.File[] | undefined= req.files
+            let result:any = null
             if(files && Array.isArray(files)){
                 const uploaded = await uploadImage(files[1]?.path ?? '')
                 console.log("publicUrl", uploaded?.url)
                 if(uploaded){
                     try{
-                        await runGeneration(files[0]?.path ?? '', uploaded.url);
+                        result =await runGeneration(files[0]?.path ?? '', uploaded.url);
                     }catch(error){
                         // Compensating action: undo the Cloudinary upload since the
                         // overall try-on failed and there's nothing to keep it for.
@@ -120,9 +121,18 @@ export class VtonController {
                     }
                 }
             }
-            return res.json({
-                ok:true
-            })
+            if(result){
+                return res.json({
+                    ok:true,
+                    image:result?.resultImageUrl,
+                    status:result?.status
+                })
+            } else {
+                return res.json({
+                ok:false,
+                error:{body:{message:'No se pudo generar la imagen'}}
+            });
+            }
         }catch(error){
             console.log("error", error)
             return res.json({
