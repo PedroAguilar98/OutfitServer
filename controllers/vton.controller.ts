@@ -9,8 +9,11 @@ const client = new Genlook({ apiKey: process.env.GENLOOK_API_KEY || '' });
 
 import { v2 as cloudinary } from 'cloudinary';
 
-const uploadImage = async (imagePath: string) => {
-    if(!imagePath) return null
+// Shared upload helper: `source` can be a local file path OR a remote URL,
+// Cloudinary fetches either one. Used both for the product photo the user
+// sends us, and for persisting Genlook's (short-lived) result image.
+const uploadToCloudinary = async (source: string, folder: string, publicIdPrefix: string) => {
+    if (!source) return null;
     // Configuration
     cloudinary.config({
         cloud_name: 'hagj26kg',
@@ -18,12 +21,12 @@ const uploadImage = async (imagePath: string) => {
         api_secret: process.env.CLOUDINARY_API_SECRET || '' // Click 'View API Keys' above to copy your API secret
     });
 
-    // Upload an image with a unique public_id so each upload is a distinct asset
+    // Upload with a unique public_id so each upload is a distinct asset
     const uploadResult = await cloudinary.uploader
        .upload(
-           imagePath, {
-               public_id: `product_${randomUUID()}`,
-               folder: 'vton-products',
+           source, {
+               public_id: `${publicIdPrefix}_${randomUUID()}`,
+               folder,
            }
        )
        .catch((error) => {
@@ -32,15 +35,12 @@ const uploadImage = async (imagePath: string) => {
 
     console.log(uploadResult);
 
+    return uploadResult ?? null;
+};
+
+const uploadImage = async (imagePath: string) => {
+    const uploadResult = await uploadToCloudinary(imagePath, 'vton-products', 'product');
     if (!uploadResult) return null;
-
-    // Optimize delivery by resizing and applying auto-format and auto-quality
-    const optimizeUrl = cloudinary.url(uploadResult.public_id, {
-        fetch_format: 'auto',
-        quality: 'auto'
-    });
-
-    console.log(optimizeUrl);
 
     // Transform the image: auto-crop to square aspect_ratio
     const autoCropUrl = cloudinary.url(uploadResult.public_id, {
@@ -52,6 +52,22 @@ const uploadImage = async (imagePath: string) => {
 
     // Keep the public_id around so a failed downstream step can undo this upload
     return { url: autoCropUrl, publicId: uploadResult.public_id };
+};
+
+// Genlook only keeps generated result images in its bucket for ~7 days.
+// Re-host the result on Cloudinary so we own a durable copy, and hand that
+// URL back instead of the Genlook one.
+const persistResultImage = async (remoteUrl: string) => {
+    const uploadResult = await uploadToCloudinary(remoteUrl, 'vton-results', 'result');
+    if (!uploadResult) return null;
+
+    // Just optimize delivery (no crop) — this is the full try-on result, not a thumbnail
+    const optimizedUrl = cloudinary.url(uploadResult.public_id, {
+        fetch_format: 'auto',
+        quality: 'auto'
+    });
+
+    return { url: optimizedUrl, publicId: uploadResult.public_id };
 };
 
 // Compensating action for uploadImage: deletes the asset if a later step fails
@@ -122,9 +138,16 @@ export class VtonController {
                 }
             }
             if(result){
+                // Genlook's result image only lives ~7 days in its bucket, so
+                // re-host it on Cloudinary and return that durable URL instead.
+                // If the copy fails for some reason, fall back to Genlook's URL
+                // rather than failing the whole request.
+                const persisted = result?.resultImageUrl
+                    ? await persistResultImage(result.resultImageUrl)
+                    : null;
                 return res.json({
                     ok:true,
-                    image:result?.resultImageUrl,
+                    image:persisted?.url ?? result?.resultImageUrl,
                     status:result?.status
                 })
             } else {
